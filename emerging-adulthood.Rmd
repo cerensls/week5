@@ -1,0 +1,138 @@
+---
+title: "emerging-adulthood"
+output: html_document
+date: "2022-10-24"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(readxl)
+library(janitor)
+```
+
+Let's read in our data
+
+```{r}
+adulthood_data_raw <- read_excel("data/EAMMi2-Data1.2.xlsx")
+adulthood_codebook_raw <- read_excel("data/EAMMi2-Data1.2-Codebook.xlsx") %>%
+  clean_names() #tidying up column names for codebook
+```
+
+Lets find the questions about defining ourselves in the survey
+
+```{r}
+adulthood_codebook_raw %>%
+  filter(str_detect(question_text, "defining yourself")) #to find a specific question includes "defining yourself"
+```
+then, we can get that column with select
+
+```{r}
+adulthood_data_raw %>%
+  select(IDEA_5	)
+```
+or we can find all matching columns with "starts_with"
+
+```{r}
+idea_responses <- adulthood_data_raw %>%
+  select(ResponseId, starts_with("IDEA_"))
+
+idea_responses_long <- idea_responses %>% #wide dataset
+  pivot_longer(starts_with("IDEA")) %>% #makes it long dataset (ggplot2 requires long data)
+   mutate(value_label = case_when( #when there is more than when cases to alter
+    value == 1 ~ "Strong disagree",
+    value == 2 ~ "Disagree",
+    value == 3 ~ "Agree",
+    value == 4 ~ "Strong agree"
+  ))
+```
+
+Get question text from the codebook
+
+```{r}
+idea_questions <- adulthood_codebook_raw %>%
+  select(variable_name, question_text) %>%
+  filter(str_detect(variable_name, "IDEA_"))
+
+```
+
+Now we can join dataset and codebook data together to get a better reading
+
+```{r}
+idea_responses_long %>% #from raw_data
+  left_join(idea_questions,
+            by = c("name" = "variable_name")) %>% #joins "name" in raw data with "variable_name" in codebook
+  count(question_text, value_label) #shows question_text column with relation to value_label column
+```
+to visualize
+
+```{r}
+idea_responses_long %>% 
+  left_join(idea_questions,
+            by = c("name" = "variable_name")) %>%
+  count(question_text, value_label) %>%
+  ggplot() +
+  aes(x = n,
+      y = question_text,
+      fill = value_label) +
+  geom_col(position = "fill")
+```
+----------------------------------------------------------
+exercise -- do the same thing for "social media" -- 
+
+```{r}
+adulthood_codebook_raw %>%
+  filter(str_detect(x3, "social media")) 
+```
+```{r}
+social_media_response <- adulthood_data_raw %>%
+  select(ResponseId, starts_with("SocMedia_"))
+
+social_media_response_long <- social_media_response %>%
+  pivot_longer(starts_with("SocMedia")) %>% 
+   mutate(value_label = case_when( 
+    value == 1 ~ "Strong disagree",
+    value == 2 ~ "Disagree",
+    value == 3 ~ "Agree",
+    value == 4 ~ "Strong agree"
+  ))
+```
+
+```{r}
+social_media_questions <- adulthood_codebook_raw %>%
+  select(variable_name, question_text) %>%
+  filter(str_detect(variable_name, "SocMedia_"))
+
+```
+
+```{r}
+  social_media_response_long %>% 
+  left_join(social_media_questions,
+            by = c("name" = "variable_name")) %>% 
+  count(question_text, value_label) %>%
+  
+  ggplot() +
+  aes(x = n,
+      y = question_text,
+      fill = value_label) +
+  geom_col(position = "fill")
+
+```
+----------------------------------------------------------
+
+continued -> making the plot prettier
+
+```{r}
+idea_responses_long %>% 
+  left_join(idea_questions,
+            by = c("name" = "variable_name")) %>%
+  count(question_text, value_label) %>%
+  ggplot() +
+  aes(x = n,
+      y = str_wrap(question_text, 30), #makes the question test wrapped smaller
+      fill = value_label) +
+  geom_col(position = "fill") +
+  labs(x = "% of respondents",
+       y = "") #changing the names for x and y axis
+```
+
